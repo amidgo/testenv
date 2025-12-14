@@ -34,8 +34,9 @@ type CreateFunc[T any] func() (T, error)
 type Config[T any] struct {
 	WaitUntilCleanup time.Duration
 	CleanupTimeout   time.Duration
-	CreateFunc       CreateFunc[T]
 	Tracer           Tracer[T]
+
+	createFunc CreateFunc[T]
 }
 
 func Cleanup(ctx context.Context, value any) (bool, error) {
@@ -166,7 +167,7 @@ func (phaseInitial[T]) handleEnterCommand(
 	_ T,
 	cmd commandEnter[T],
 ) (T, phase[T]) {
-	value, err := cfg.CreateFunc()
+	value, err := cfg.createFunc()
 	if err != nil {
 		var zero T
 
@@ -768,22 +769,22 @@ func (r *Reuse[T]) Shutdown() {
 
 // Run T must be safe to use by many goroutines
 func Run[T any](
-	cfg Config[T],
+	createFunc CreateFunc[T],
+	opts ...Option[T],
 ) *Reuse[T] {
-	if cfg.CreateFunc == nil {
+	if createFunc == nil {
 		panic("pass nil cfg.CreateFunc in reuse.Run")
 	}
 
-	if cfg.WaitUntilCleanup <= 0 {
-		cfg.WaitUntilCleanup = defaultWaitUntilCleanup
+	cfg := Config[T]{
+		WaitUntilCleanup: defaultWaitUntilCleanup,
+		CleanupTimeout:   defaultCleanupTimeout,
+		Tracer:           noopTracer[T]{},
+		createFunc:       createFunc,
 	}
 
-	if cfg.CleanupTimeout <= 0 {
-		cfg.CleanupTimeout = defaultCleanupTimeout
-	}
-
-	if cfg.Tracer == nil {
-		cfg.Tracer = noopTracer[T]{}
+	for _, op := range opts {
+		op(&cfg)
 	}
 
 	commandCh := make(chan command[T])
@@ -805,11 +806,32 @@ type Cleanupper interface {
 	Cleanup(doCleanup func())
 }
 
+type Option[T any] func(cfg *Config[T])
+
+func WithCleanupTimeout[T any](cleanupTimeout time.Duration) Option[T] {
+	return func(cfg *Config[T]) {
+		cfg.CleanupTimeout = cleanupTimeout
+	}
+}
+
+func WithWaitUntilCleanup[T any](wait time.Duration) Option[T] {
+	return func(cfg *Config[T]) {
+		cfg.WaitUntilCleanup = wait
+	}
+}
+
+func WithTracer[T any](tracer Tracer[T]) Option[T] {
+	return func(cfg *Config[T]) {
+		cfg.Tracer = tracer
+	}
+}
+
 func RunForTesting[T any](
 	cleanupper Cleanupper,
-	cfg Config[T],
+	createFunc CreateFunc[T],
+	opts ...Option[T],
 ) *Reuse[T] {
-	reuse := Run(cfg)
+	reuse := Run(createFunc, opts...)
 
 	cleanupper.Cleanup(reuse.Shutdown)
 

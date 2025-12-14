@@ -38,16 +38,16 @@ func Test_Reuse_base_cleanup_after_exit_closer(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const waitUntilCleanup = time.Second
 
-		rse := RunForTesting(t, Config[*closer]{
-			Tracer:           &testingTrace[*closer]{t: t},
-			WaitUntilCleanup: waitUntilCleanup,
-			CreateFunc: func() (*closer, error) {
+		rse := RunForTesting(t,
+			func() (*closer, error) {
 				return &closer{
 					closeCh: make(chan struct{}),
 					err:     error(nil),
 				}, nil
 			},
-		})
+			WithTracer(&testingTrace[*closer]{t: t}),
+			WithWaitUntilCleanup[*closer](waitUntilCleanup),
+		)
 
 		var value *closer
 
@@ -72,16 +72,16 @@ func Test_Reuse_base_cleanup_after_exit_closer_err(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const waitUntilCleanup = time.Second
 
-		rse := RunForTesting(t, Config[*closer]{
-			Tracer:           &testingTrace[*closer]{t: t},
-			WaitUntilCleanup: waitUntilCleanup,
-			CreateFunc: func() (*closer, error) {
+		rse := RunForTesting(t,
+			func() (*closer, error) {
 				return &closer{
 					closeCh: make(chan struct{}),
 					err:     io.ErrUnexpectedEOF,
 				}, nil
 			},
-		})
+			WithTracer(&testingTrace[*closer]{t: t}),
+			WithWaitUntilCleanup[*closer](waitUntilCleanup),
+		)
 
 		var value *closer
 
@@ -117,16 +117,16 @@ func Test_Reuse_base_cleanup_after_exit_terminate(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const waitUntilCleanup = time.Second
 
-		rse := RunForTesting(t, Config[*terminator]{
-			Tracer:           &testingTrace[*terminator]{t: t},
-			WaitUntilCleanup: waitUntilCleanup,
-			CreateFunc: func() (*terminator, error) {
+		rse := RunForTesting(t,
+			func() (*terminator, error) {
 				return &terminator{
 					closeCh: make(chan struct{}),
 					err:     error(nil),
 				}, nil
 			},
-		})
+			WithTracer(&testingTrace[*terminator]{t: t}),
+			WithWaitUntilCleanup[*terminator](waitUntilCleanup),
+		)
 
 		var value *terminator
 
@@ -151,16 +151,16 @@ func Test_Reuse_base_cleanup_after_exit_terminate_err(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const waitUntilCleanup = time.Second
 
-		rse := RunForTesting(t, Config[*terminator]{
-			Tracer:           &testingTrace[*terminator]{t: t},
-			WaitUntilCleanup: waitUntilCleanup,
-			CreateFunc: func() (*terminator, error) {
+		rse := RunForTesting(t,
+			func() (*terminator, error) {
 				return &terminator{
 					closeCh: make(chan struct{}),
 					err:     io.ErrUnexpectedEOF,
 				}, nil
 			},
-		})
+			WithTracer(&testingTrace[*terminator]{t: t}),
+			WithWaitUntilCleanup[*terminator](waitUntilCleanup),
+		)
 
 		var value *terminator
 
@@ -196,16 +196,16 @@ func Test_Reuse_base_cleanup_after_exit_terminate_context(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const waitUntilCleanup = time.Second
 
-		rse := RunForTesting(t, Config[*terminatorContext]{
-			Tracer:           &testingTrace[*terminatorContext]{t: t},
-			WaitUntilCleanup: waitUntilCleanup,
-			CreateFunc: func() (*terminatorContext, error) {
+		rse := RunForTesting(t,
+			func() (*terminatorContext, error) {
 				return &terminatorContext{
 					closeCh: make(chan struct{}),
 					err:     error(nil),
 				}, nil
 			},
-		})
+			WithTracer(&testingTrace[*terminatorContext]{t: t}),
+			WithWaitUntilCleanup[*terminatorContext](waitUntilCleanup),
+		)
 
 		var value *terminatorContext
 
@@ -230,16 +230,16 @@ func Test_Reuse_base_cleanup_after_exit_terminate_context_err(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const waitUntilCleanup = time.Second
 
-		rse := RunForTesting(t, Config[*terminatorContext]{
-			Tracer:           &testingTrace[*terminatorContext]{t: t},
-			WaitUntilCleanup: waitUntilCleanup,
-			CreateFunc: func() (*terminatorContext, error) {
+		rse := RunForTesting(t,
+			func() (*terminatorContext, error) {
 				return &terminatorContext{
 					closeCh: make(chan struct{}),
 					err:     io.ErrUnexpectedEOF,
 				}, nil
 			},
-		})
+			WithTracer(&testingTrace[*terminatorContext]{t: t}),
+			WithWaitUntilCleanup[*terminatorContext](waitUntilCleanup),
+		)
 
 		var value *terminatorContext
 
@@ -264,13 +264,13 @@ func Test_Reuse_base_cleanup_after_exit(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		const waitUntilCleanup = time.Second
 
-		rse := RunForTesting(t, Config[int]{
-			Tracer:           &testingTrace[int]{t: t},
-			WaitUntilCleanup: waitUntilCleanup,
-			CreateFunc: func() (int, error) {
+		rse := RunForTesting(t,
+			func() (int, error) {
 				return 1, nil
 			},
-		})
+			WithTracer(&testingTrace[int]{t: t}),
+			WithWaitUntilCleanup[int](waitUntilCleanup),
+		)
 
 		entered, err := rse.Enter()
 		if err != nil {
@@ -288,16 +288,16 @@ func Test_Reuse_base_shutdown_in_phase_wait_until_cleanup(t *testing.T) {
 func testReuseShutdownInPhaseWaitUntilCleanup(t *testing.T) {
 	const waitUntilCleanup = time.Hour
 
-	rse := RunForTesting(t, Config[*closer]{
-		Tracer:           &testingTrace[*closer]{t: t},
-		WaitUntilCleanup: waitUntilCleanup,
-		CreateFunc: func() (*closer, error) {
+	rse := RunForTesting(t,
+		func() (*closer, error) {
 			return &closer{
 				closeCh: make(chan struct{}),
 				err:     error(nil),
 			}, nil
 		},
-	})
+		WithTracer(&testingTrace[*closer]{t: t}),
+		WithWaitUntilCleanup[*closer](waitUntilCleanup),
+	)
 
 	entered, err := rse.Enter()
 	if err != nil {
@@ -327,16 +327,16 @@ func Test_Reuse_base_kill_in_phase_wait_until_cleanup(t *testing.T) {
 func testReuseKillInPhaseWaitUntilCleanup(t *testing.T) {
 	const waitUntilCleanup = time.Hour
 
-	rse := RunForTesting(t, Config[*closer]{
-		Tracer:           &testingTrace[*closer]{t: t},
-		WaitUntilCleanup: waitUntilCleanup,
-		CreateFunc: func() (*closer, error) {
+	rse := RunForTesting(t,
+		func() (*closer, error) {
 			return &closer{
 				closeCh: make(chan struct{}),
 				err:     error(nil),
 			}, nil
 		},
-	})
+		WithTracer(&testingTrace[*closer]{t: t}),
+		WithWaitUntilCleanup[*closer](waitUntilCleanup),
+	)
 
 	entered, err := rse.Enter()
 	if err != nil {
@@ -366,16 +366,16 @@ func Test_Reuse_base_cleanup_after_exit_parallel(t *testing.T) {
 func testReuseCleanupAfterExitParallel(t *testing.T) {
 	const waitUntilCleanup = time.Hour
 
-	rse := RunForTesting(t, Config[*closer]{
-		Tracer:           &testingTrace[*closer]{t: t},
-		WaitUntilCleanup: waitUntilCleanup,
-		CreateFunc: func() (*closer, error) {
+	rse := RunForTesting(t,
+		func() (*closer, error) {
 			return &closer{
 				closeCh: make(chan struct{}),
 				err:     error(nil),
 			}, nil
 		},
-	})
+		WithTracer(&testingTrace[*closer]{t: t}),
+		WithWaitUntilCleanup[*closer](waitUntilCleanup),
+	)
 
 	var value *closer
 
@@ -426,7 +426,7 @@ func testReuseCleanupAfterExitParallel(t *testing.T) {
 }
 
 func Test_Reuse_base_cant_enter_after_shutdown(t *testing.T) {
-	rse := Run(Config[int]{CreateFunc: func() (int, error) { return 0, nil }})
+	rse := Run(func() (int, error) { return 0, nil })
 
 	rse.Shutdown()
 
@@ -437,7 +437,7 @@ func Test_Reuse_base_cant_enter_after_shutdown(t *testing.T) {
 }
 
 func Test_Reuse_base_cant_enter_after_kill(t *testing.T) {
-	rse := Run(Config[int]{CreateFunc: func() (int, error) { return 0, nil }})
+	rse := Run(func() (int, error) { return 0, nil })
 
 	rse.Kill()
 
@@ -448,7 +448,7 @@ func Test_Reuse_base_cant_enter_after_kill(t *testing.T) {
 }
 
 func Test_Reuse_base_done_is_closed_after_shutdown(t *testing.T) {
-	rse := Run(Config[int]{CreateFunc: func() (int, error) { return 0, nil }})
+	rse := Run(func() (int, error) { return 0, nil })
 
 	t.Cleanup(func() {
 		select {
@@ -465,7 +465,7 @@ func Test_Reuse_base_done_is_closed_after_shutdown(t *testing.T) {
 }
 
 func Test_Reuse_base_done_is_closed_after_kill(t *testing.T) {
-	rse := Run(Config[int]{CreateFunc: func() (int, error) { return 0, nil }})
+	rse := Run(func() (int, error) { return 0, nil })
 
 	t.Cleanup(func() {
 		select {
@@ -483,12 +483,12 @@ func Test_Reuse_base_done_is_closed_after_kill(t *testing.T) {
 
 func Test_Reuse_base_double_exit(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		rse := RunForTesting(t, Config[*closer]{CreateFunc: func() (*closer, error) {
+		rse := RunForTesting(t, func() (*closer, error) {
 			return &closer{
 				closeCh: make(chan struct{}),
 				err:     error(nil),
 			}, nil
-		}})
+		})
 
 		entered, err := rse.Enter()
 		if err != nil {
@@ -510,9 +510,9 @@ func Test_Reuse_base_double_exit(t *testing.T) {
 
 func Test_Reuse_base_create_func_return_error(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		rse := RunForTesting(t, Config[int]{CreateFunc: func() (int, error) {
+		rse := RunForTesting(t, func() (int, error) {
 			return 0, io.ErrUnexpectedEOF
-		}})
+		})
 
 		_, err := rse.Enter()
 		if !errors.Is(err, io.ErrUnexpectedEOF) {
@@ -537,14 +537,13 @@ func Test_command(*testing.T) {
 
 func Test_Reuse_phase_shutdown_enter(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		rse := Run(Config[*closer]{
-			CreateFunc: func() (*closer, error) {
-				return &closer{
-					closeCh: make(chan struct{}),
-					err:     error(nil),
-				}, nil
-			},
-		})
+		rse := Run(func() (*closer, error) {
+			return &closer{
+				closeCh: make(chan struct{}),
+				err:     error(nil),
+			}, nil
+		},
+		)
 
 		initialEntered, err := rse.Enter()
 		if err != nil {
@@ -570,14 +569,13 @@ func Test_Reuse_phase_shutdown_enter(t *testing.T) {
 
 func Test_Reuse_phase_shutdown_kill(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		rse := Run(Config[*closer]{
-			CreateFunc: func() (*closer, error) {
-				return &closer{
-					closeCh: make(chan struct{}),
-					err:     error(nil),
-				}, nil
-			},
-		})
+		rse := Run(func() (*closer, error) {
+			return &closer{
+				closeCh: make(chan struct{}),
+				err:     error(nil),
+			}, nil
+		},
+		)
 
 		_, err := rse.Enter()
 		if err != nil {
@@ -609,5 +607,39 @@ func Test_Reuse_Run_nil_create_func(t *testing.T) {
 		}
 	}()
 
-	_ = Run(Config[int]{})
+	_ = Run[int](nil)
+}
+
+type inlineTerminater func(ctx context.Context) error
+
+func (in inlineTerminater) Terminate(ctx context.Context) error {
+	return in(ctx)
+}
+
+func Test_Reuse_Option_cleanup_timeout(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		cleanupTimeout := time.Second * 64
+		startTime := time.Now()
+
+		rse := Run(func() (inlineTerminater, error) {
+			return func(ctx context.Context) error {
+				deadline, ok := ctx.Deadline()
+				if !ok {
+					t.Fatal("ctx should have deadline")
+				}
+
+				timeout := deadline.Sub(startTime)
+
+				if timeout != cleanupTimeout {
+					t.Fatalf("unexpected context deadline: %s", timeout)
+				}
+
+				return nil
+			}, nil
+		},
+			WithCleanupTimeout[inlineTerminater](cleanupTimeout),
+		)
+
+		rse.Shutdown()
+	})
 }
