@@ -8,6 +8,8 @@ linters:
     # https://github.com/Crocmagnon/arangolint
     # Необходим при работе с arangodb
     # В случае работы с данной базой необходимо включить
+    #
+    # Выключаем
     # - arangolint
 
     # https://golangci-lint.run/docs/linters/configuration/#asasalint
@@ -25,6 +27,7 @@ linters:
     # Проверяет на наличие опасных символов (см README.md в репозитории bidichk)
     # Не вижу практической пользы
     #
+    # Выключаем
     # - bidichk
 
     # https://golangci-lint.run/docs/linters/configuration/#bodyclose
@@ -89,7 +92,10 @@ linters:
     # https://github.com/alexkohler/dogsled
     # В случае если видит 2 и более (количество настраивается) _, _, a := foo() присвоения переменных то сообщает об этом
     # Не вижу практической пользы
+    #
+    # Выключаем
     # - dogsled
+
     # https://golangci-lint.run/docs/linters/configuration/#dupl
     # https://github.com/mibk/dupl
     # Проверяет код на наличие дубликатов кода
@@ -102,6 +108,8 @@ linters:
     # Примеры исправлений в популярных проектах https://github.com/Abirdcfly/dupword/issues/3
     # Безвреден и не навязчив, но требует настройки
     # Включить если пишите много комментариев
+    #
+    # Выключаем
     # - dupword
 
     # https://golangci-lint.run/docs/linters/configuration/#durationcheck
@@ -122,6 +130,10 @@ linters:
     # Запрещает делать fmt.Errorf() c динамическими полями помимо одной error
     # Не имеет настройки отдельных правил
     # Замещен errcheck, errorlint, wrapcheck
+    #
+    # errcheck, errorlint, wrapcheck выполяют ту же самую функцию
+    #
+    # Выключаем
     # - err113
 
     # https://golangci-lint.run/docs/linters/configuration/#errcheck
@@ -417,6 +429,7 @@ linters:
     # Настраивается
     #
     # Бывает напряжно
+    # Плохая интеграция с generic (отсутствует, либой возврат generic параметра будет расцениваться как нарушение)
     #
     # Выключаем
     # - ireturn
