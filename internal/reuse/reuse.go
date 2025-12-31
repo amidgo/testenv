@@ -15,6 +15,8 @@ import (
 )
 
 const (
+	WeightUnlimited = -1
+
 	defaultWaitUntilCleanup = time.Second
 	defaultCleanupTimeout   = 5 * time.Second
 )
@@ -35,6 +37,7 @@ type Config[T any] struct {
 	WaitUntilCleanup time.Duration
 	CleanupTimeout   time.Duration
 	Tracer           Tracer[T]
+	Weight           int
 
 	createFunc CreateFunc[T]
 }
@@ -671,6 +674,8 @@ type Reuse[T any] struct {
 	cfg       Config[T]
 	commandCh chan command[T]
 
+	semaphore chan struct{}
+
 	done chan struct{}
 
 	shutdownOnce sync.Once
@@ -689,6 +694,19 @@ func (r *Reuse[T]) cleanup() {
 }
 
 func (r *Reuse[T]) exit() {
+	if r.semaphore != nil {
+		select {
+		case <-r.done:
+			return
+
+		case <-r.semaphore:
+		}
+	}
+
+	r.sendExitCommand()
+}
+
+func (r *Reuse[T]) sendExitCommand() {
 	replyCh := make(chan commandExitResponse)
 
 	select {
@@ -715,6 +733,15 @@ func (r *Reuse[T]) exit() {
 var ErrReuseIsClosed = errors.New("reuse is closed")
 
 func (r *Reuse[T]) Enter() (Entered[T], error) {
+	if r.semaphore != nil {
+		select {
+		case <-r.done:
+			return Entered[T]{}, ErrReuseIsClosed
+
+		case r.semaphore <- struct{}{}:
+		}
+	}
+
 	replyCh := make(chan commandEnterResponse[T])
 
 	select {
@@ -780,11 +807,18 @@ func Run[T any](
 		WaitUntilCleanup: defaultWaitUntilCleanup,
 		CleanupTimeout:   defaultCleanupTimeout,
 		Tracer:           noopTracer[T]{},
+		Weight:           WeightUnlimited,
 		createFunc:       createFunc,
 	}
 
 	for _, op := range opts {
 		op(&cfg)
+	}
+
+	var semaphore chan struct{}
+
+	if cfg.Weight > 0 {
+		semaphore = make(chan struct{}, cfg.Weight)
 	}
 
 	commandCh := make(chan command[T])
@@ -795,7 +829,8 @@ func Run[T any](
 		cfg:       cfg,
 		commandCh: commandCh,
 
-		done: make(chan struct{}),
+		done:      make(chan struct{}),
+		semaphore: semaphore,
 
 		shutdownOnce: sync.Once{},
 		closeOnce:    sync.Once{},
@@ -823,6 +858,12 @@ func WithWaitUntilCleanup[T any](wait time.Duration) Option[T] {
 func WithTracer[T any](tracer Tracer[T]) Option[T] {
 	return func(cfg *Config[T]) {
 		cfg.Tracer = tracer
+	}
+}
+
+func WithWeight[T any](weight int) Option[T] {
+	return func(cfg *Config[T]) {
+		cfg.Weight = weight
 	}
 }
 

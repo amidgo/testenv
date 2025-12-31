@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	minioenv "github.com/amidgo/testenv/minio"
 	"github.com/minio/minio-go/v7"
@@ -59,7 +60,7 @@ func RunConfig(
 	cfg *Config,
 	buckets ...minioenv.Bucket,
 ) (minioClient *minio.Client, term func(), err error) {
-	env, err := RunContainer(cfg)(ctx)
+	env, err := RunContainer(cfg)()
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("run container, %w", err)
 	}
@@ -71,6 +72,7 @@ type Config struct {
 	MinioImage string
 	Username   string
 	Password   string
+	Timeout    time.Duration
 }
 
 func configMinioImage(cfg *Config) string {
@@ -91,28 +93,41 @@ func configMinioImage(cfg *Config) string {
 func configUsername(cfg *Config) string {
 	const defaultUsername = "minioadmin"
 
-	if cfg != nil && cfg.Username != "" {
-		return cfg.Username
+	if cfg == nil || cfg.Username == "" {
+		return defaultUsername
 	}
 
-	return defaultUsername
+	return cfg.Username
 }
 
 func configPassword(cfg *Config) string {
 	const defaultPassword = "minioadmin"
 
-	if cfg != nil && cfg.Password != "" {
-		return cfg.Password
+	if cfg == nil || cfg.Password == "" {
+		return defaultPassword
 	}
 
-	return defaultPassword
+	return cfg.Password
+}
+
+func configTimeout(cfg *Config) time.Duration {
+	const defaultTimeout = time.Second * 3
+
+	if cfg == nil || cfg.Timeout <= 0 {
+		return defaultTimeout
+	}
+
+	return cfg.Timeout
 }
 
 func RunContainer(cfg *Config) minioenv.ProvideEnvironmentFunc {
-	return func(ctx context.Context) (minioenv.Environment, error) {
+	return func() (minioenv.Environment, error) {
 		minioImage := configMinioImage(cfg)
 		username := configUsername(cfg)
 		password := configPassword(cfg)
+
+		ctx, cancel := context.WithTimeout(context.Background(), configTimeout(cfg))
+		defer cancel()
 
 		minioContainer, err := miniocnt.Run(ctx,
 			minioImage,
@@ -152,5 +167,10 @@ func (c container) Connect(ctx context.Context) (*minio.Client, error) {
 }
 
 func (c container) Terminate(ctx context.Context) error {
-	return c.minioContainer.Terminate(ctx)
+	err := c.minioContainer.Terminate(ctx)
+	if err != nil {
+		return fmt.Errorf("terminate minio container: %w", err)
+	}
+
+	return nil
 }

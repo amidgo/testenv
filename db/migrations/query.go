@@ -6,7 +6,6 @@ package migrations
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 )
 
@@ -16,16 +15,53 @@ type sqlizer interface {
 	ToSql() (sql string, args []any, err error)
 }
 
-var errInvalidQueryType = errors.New("invalid query type, expected string or sqlizer types")
+type queries struct {
+	migrations Migrations
+	queries    []Query
+}
+
+func (q *queries) Up(ctx context.Context, db *sql.DB) error {
+	err := q.migrations.Up(ctx, db)
+	if err != nil {
+		return fmt.Errorf("up migrations for queries: %w", err)
+	}
+
+	for _, query := range q.queries {
+		err := ExecQuery(ctx, db, query)
+		if err != nil {
+			return fmt.Errorf("exec query: %v", query)
+		}
+	}
+
+	return nil
+}
+
+func (q *queries) Down(ctx context.Context, db *sql.DB) error {
+	err := q.migrations.Down(ctx, db)
+	if err != nil {
+		return fmt.Errorf("down migrations: %w", err)
+	}
+
+	return nil
+}
+
+func Queries(migrations Migrations, qrs ...Query) Migrations {
+	return &queries{
+		migrations: migrations,
+		queries:    qrs,
+	}
+}
 
 func ExecQuery(ctx context.Context, db *sql.DB, query Query) error {
 	switch query := query.(type) {
 	case sqlizer:
 		return execSqlizer(ctx, db, query)
+
 	case string:
 		return execString(ctx, db, query)
+
 	default:
-		return errInvalidQueryType
+		return fmt.Errorf("invalid query type, expected string or sqlizer, got %T", query)
 	}
 }
 

@@ -555,11 +555,15 @@ func Test_Reuse_phase_shutdown_enter(t *testing.T) {
 	Loop:
 		for {
 			entered, err := rse.Enter()
+
 			switch {
 			case err == nil:
 				entered.Exit()
+
 			case errors.Is(err, ErrShutdown):
 				break Loop
+
+			default:
 			}
 		}
 
@@ -590,8 +594,11 @@ func Test_Reuse_phase_shutdown_kill(t *testing.T) {
 			switch {
 			case err == nil:
 				entered.Exit()
+
 			case errors.Is(err, ErrShutdown):
 				break Loop
+
+			default:
 			}
 		}
 
@@ -642,4 +649,125 @@ func Test_Reuse_Option_cleanup_timeout(t *testing.T) {
 
 		rse.Shutdown()
 	})
+}
+
+func Test_Reuse_Option_weight(t *testing.T) {
+	t.Run("strict check", func(t *testing.T) {
+		synctest.Test(t, testWeightOptionStrict)
+	})
+
+	t.Run("brute force check", func(t *testing.T) {
+		synctest.Test(t, testWeightOptionBruteforce)
+	})
+}
+
+func testWeightOptionStrict(t *testing.T) {
+	const weight = 10
+
+	rse := RunForTesting(t, func() (*closer, error) {
+		return &closer{
+			closeCh: make(chan struct{}),
+			err:     error(nil),
+		}, nil
+	},
+		WithWeight[*closer](weight),
+	)
+
+	enterCh := make(chan struct{})
+
+	for range weight * 2 {
+		go func() {
+			_, err := rse.Enter()
+
+			switch {
+			case err == nil:
+				enterCh <- struct{}{}
+
+			case errors.Is(err, ErrReuseIsClosed):
+				return
+
+			default:
+				panic(err)
+			}
+		}()
+	}
+
+	counter := 0
+
+	for range enterCh {
+		counter++
+
+		if counter > weight {
+			t.Fatal("counter more than weight")
+		}
+
+		if counter == weight {
+			close(enterCh)
+		}
+	}
+
+	rse.Kill()
+}
+
+func testWeightOptionBruteforce(t *testing.T) {
+	const weight = 10
+
+	rse := RunForTesting(t, func() (*closer, error) {
+		return &closer{
+			closeCh: make(chan struct{}),
+			err:     error(nil),
+		}, nil
+	},
+		WithWeight[*closer](weight),
+	)
+
+	ctx, cancel := context.WithCancelCause(t.Context())
+	defer cancel(nil)
+
+	errUnexpectedUsersInTime := errors.New("unexpected count of users")
+
+	wg := sync.WaitGroup{}
+
+	mu := sync.Mutex{}
+	users := 0
+
+	for range weight * 10 {
+		wg.Go(func() {
+			entered, err := rse.Enter()
+			if err != nil {
+				cancel(err)
+
+				return
+			}
+
+			mu.Lock()
+			users++
+
+			if users > weight {
+				cancel(errUnexpectedUsersInTime)
+
+				entered.Exit()
+				users--
+				mu.Unlock()
+
+				return
+			}
+
+			mu.Unlock()
+
+			mu.Lock()
+
+			entered.Exit()
+			users--
+
+			mu.Unlock()
+		})
+	}
+
+	wg.Wait()
+
+	err := context.Cause(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 }

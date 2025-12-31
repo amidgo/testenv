@@ -10,7 +10,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/amidgo/testenv/minio"
+	minioenv "github.com/amidgo/testenv/minio"
 
 	miniorunner "github.com/amidgo/testenv/minio/runner"
 
@@ -52,7 +52,6 @@ func (r *RunForTestingTest) Test(t *testing.T) {
 			requireInitialFileExists(t, ctx, minioClient, bucket.Name, initialFile)
 		}
 	}
-
 }
 
 func requireInitialFileExists(
@@ -62,16 +61,31 @@ func requireInitialFileExists(
 	bucketName string,
 	initialFile minioenv.File,
 ) {
-	object, err := minioClient.GetObject(ctx, bucketName, initialFile.Name, minio.GetObjectOptions{})
+	object, err := minioClient.GetObject(
+		ctx,
+		bucketName,
+		initialFile.Name,
+		minio.GetObjectOptions{},
+	)
 	if err != nil {
-		t.Fatalf("get object %s from bucket %s, unexpected error: %+v", initialFile.Name, bucketName, err)
+		t.Fatalf(
+			"get object %s from bucket %s, unexpected error: %+v",
+			initialFile.Name,
+			bucketName,
+			err,
+		)
 	}
 
 	objectData := &bytes.Buffer{}
 
 	_, err = io.Copy(objectData, object)
 	if err != nil {
-		t.Fatalf("read data from object %s from bucket %s, unexpected error: %+v", initialFile.Name, bucketName, err)
+		t.Fatalf(
+			"read data from object %s from bucket %s, unexpected error: %+v",
+			initialFile.Name,
+			bucketName,
+			err,
+		)
 	}
 
 	if !slices.Equal(objectData.Bytes(), initialFile.Content) {

@@ -51,7 +51,7 @@ func UseExternalConfig(
 	cfg *ExternalEnvironmentConfig,
 	buckets ...Bucket,
 ) (minioClient *minio.Client, term func(), err error) {
-	env, err := ExternalEnvironment(cfg)(ctx)
+	env, err := ExternalEnvironment(cfg)()
 	if err != nil {
 		return nil, func() {}, err
 	}
@@ -108,7 +108,7 @@ func externalEnvironmentEndpoint(cfg *ExternalEnvironmentConfig) string {
 }
 
 func ExternalEnvironment(cfg *ExternalEnvironmentConfig) ProvideEnvironmentFunc {
-	return func(ctx context.Context) (Environment, error) {
+	return func() (Environment, error) {
 		endpoint := externalEnvironmentEndpoint(cfg)
 		user := externalEnvironmentUser(cfg)
 		password := externalEnvironmentPassword(cfg)

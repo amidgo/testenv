@@ -14,4 +14,4 @@ type Environment interface {
 	Terminate(ctx context.Context) error
 }
 
-type ProvideEnvironmentFunc func(ctx context.Context) (Environment, error)
+type ProvideEnvironmentFunc func() (Environment, error)

@@ -1,0 +1,22 @@
+version: "2"
+
+linters:
+  default: none
+
+  enable:
+    # https://golangci-lint.run/docs/linters/configuration/#goheader
+    # https://github.com/denis-tingaikin/go-header
+    # Проверяет что файл начинатся с определенного формата
+    # Удобно при введении лицензии когда вам необходимо чтобы каждый файл начинался с определенного текста
+    # Имеет гибкую настройку
+    # Имеет опцию auto-fix
+    # В обычной ситуации отключаем
+    - goheader
+
+  settings:
+    goheader:
+      template: |-
+        Copyright (c) 2025 amidgo. All rights reserved.
+        Use of this source code is governed by the MIT license that can be found in the LICENSE file.
+issues:
+  fix: true

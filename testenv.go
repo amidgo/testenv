@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-const envName = "CONTAINERS_DISABLE_TESTING"
+const envName = "ENVIRONMENT_DISABLE_TESTING"
 
 func Disabled() bool {
 	env := os.Getenv(envName)
@@ -19,7 +19,7 @@ func Disabled() bool {
 	return disabled
 }
 
-func SkipDisabled(t *testing.T) {
+func SkipDisabled(t testing.TB) {
 	if Disabled() {
 		t.Skipf("test skipped because %s is SET to TRUE", envName)
 	}

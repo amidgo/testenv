@@ -1,0 +1,15 @@
+version: "3"
+
+tasks:
+  lint:
+    cmds:
+      - golangci-lint fmt {{.CLI_ARGS}}
+      - golangci-lint run {{.CLI_ARGS}}
+  license:
+    cmds:
+      - golangci-lint run --config .license.golangci.yml {{.CLI_ARGS}}
+
+  coverage:
+    cmds:
+      - go test {{.CLI_ARGS}} -coverprofile ./coverage.out
+      - go tool cover -html ./coverage.out

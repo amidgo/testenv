@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/amidgo/testenv"
+	"github.com/amidgo/testenv/internal/reuse"
 
 	"github.com/minio/minio-go/v7"
 )
@@ -45,29 +46,39 @@ func Reuse(
 	return reusable.run(ctx, buckets...)
 }
 
-const defaultDuration = time.Second
-
 type ReusableOption func(*Reusable)
+
+const defaultWaitUntilCleanup = time.Second
 
 func WithWaitDuration(waitDuration time.Duration) ReusableOption {
 	return func(r *Reusable) {
-		r.daemonWaitDuration = waitDuration
+		r.waitUntilCleanup = waitDuration
+	}
+}
+
+const defaultCleanupTimeout = time.Second
+
+func WithCleanupTimeout(timeout time.Duration) ReusableOption {
+	return func(r *Reusable) {
+		r.cleanupTimeout = timeout
 	}
 }
 
 type Reusable struct {
 	ccf ProvideEnvironmentFunc
 
-	runDaemonOnce      sync.Once
-	daemon             *testenv.ReusableDaemon
-	stopDaemon         context.CancelFunc
-	daemonWaitDuration time.Duration
+	runReuseOnce sync.Once
+	env          *reuse.Reuse[Environment]
+
+	waitUntilCleanup time.Duration
+	cleanupTimeout   time.Duration
 }
 
 func NewReusable(ccf ProvideEnvironmentFunc, opts ...ReusableOption) *Reusable {
 	reusable := &Reusable{
-		ccf:                ccf,
-		daemonWaitDuration: defaultDuration,
+		ccf:              ccf,
+		waitUntilCleanup: defaultWaitUntilCleanup,
+		cleanupTimeout:   defaultCleanupTimeout,
 	}
 
 	for _, op := range opts {
@@ -77,21 +88,17 @@ func NewReusable(ccf ProvideEnvironmentFunc, opts ...ReusableOption) *Reusable {
 	return reusable
 }
 
-func (r *Reusable) Terminate(ctx context.Context) error {
-	r.stopDaemon()
-
-	select {
-	case <-r.daemon.Done():
-		return nil
-	case <-ctx.Done():
-		return context.Cause(ctx)
-	}
+func (r *Reusable) Shutdown() {
+	r.env.Shutdown()
 }
 
-func (r *Reusable) run(ctx context.Context, buckets ...Bucket) (client *minio.Client, term func(), err error) {
-	r.runDaemonOnce.Do(r.runDaemon)
+func (r *Reusable) run(
+	ctx context.Context,
+	buckets ...Bucket,
+) (client *minio.Client, term func(), err error) {
+	r.runReuseOnce.Do(r.runReuse)
 
-	env, err := r.enter(ctx)
+	env, err := r.enter()
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("enter to reuse environment, %w", err)
 	}
@@ -104,35 +111,30 @@ func (r *Reusable) run(ctx context.Context, buckets ...Bucket) (client *minio.Cl
 	return client, term, nil
 }
 
-func (r *Reusable) runDaemon() {
-	ccf := func(ctx context.Context) (any, error) {
-		return r.ccf(ctx)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	r.daemon = testenv.RunReusableDaemon(ctx,
-		r.daemonWaitDuration,
-		ccf,
+func (r *Reusable) runReuse() {
+	r.env = reuse.Run((func() (Environment, error))(r.ccf),
+		reuse.WithWaitUntilCleanup[Environment](r.waitUntilCleanup),
+		reuse.WithCleanupTimeout[Environment](r.cleanupTimeout),
 	)
-	r.stopDaemon = cancel
 }
 
-func (r *Reusable) enter(ctx context.Context) (Environment, error) {
-	env, err := r.daemon.Enter(ctx)
+func (r *Reusable) enter() (reuse.Entered[Environment], error) {
+	entered, err := r.env.Enter()
 	if err != nil {
-		return nil, err
+		return reuse.Entered[Environment]{}, fmt.Errorf("r.env.Enter: %w", err)
 	}
 
-	return env.(Environment), nil
+	return entered, nil
 }
 
 func (r *Reusable) reuse(
 	ctx context.Context,
-	env Environment,
+	entered reuse.Entered[Environment],
 	buckets ...Bucket,
 ) (minioClient *minio.Client, term func(), err error) {
-	term = r.daemon.Exit
+	term = entered.Exit
+
+	env := entered.Value()
 
 	minioClient, err = env.Connect(ctx)
 	if err != nil {

@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"log"
 	"path"
-	"testing"
 
 	"github.com/minio/minio-go/v7"
 	minioclient "github.com/minio/minio-go/v7"
@@ -41,11 +40,8 @@ func Files(fsys fs.FS) ([]File, error) {
 		return nil, fmt.Errorf("glob files by pattern, %w", err)
 	}
 
-	if testing.Testing() {
-		log.Printf("filePaths: %+v", filePaths)
-	}
-
 	files := make([]File, 0, len(filePaths))
+
 	err = fs.WalkDir(fsys, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -142,11 +138,6 @@ func insertSingleBucket(ctx context.Context, minioClient *minio.Client, bucket B
 
 func isBucketExistsError(err error) bool {
 	resp := minio.ToErrorResponse(err)
-
-	if testing.Testing() {
-		log.Printf("resp: statusCode: %d, code: %s", resp.StatusCode, resp.Code)
-		log.Printf("err: %+v", err)
-	}
 
 	return resp.Code == "BucketAlreadyOwnedByYou"
 }
