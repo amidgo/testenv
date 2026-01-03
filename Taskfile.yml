@@ -11,5 +11,5 @@ tasks:
 
   coverage:
     cmds:
-      - go test {{.CLI_ARGS}} -coverprofile ./coverage.out
+      - go test {{.CLI_ARGS}} -coverpkg {{.CLI_ARGS}} -coverprofile ./coverage.out
       - go tool cover -html ./coverage.out
